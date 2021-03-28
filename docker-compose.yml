@@ -1,0 +1,16 @@
+version: '3.1'
+services:
+  db:
+    image: mysql
+    restart: always
+    command: --secure-file-priv='/var/lib/mysql-files'
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: crime_db
+    ports:
+      - "3307:3306"
+    volumes:
+      - my-db:/var/lib/mysql
+      - C:\Users\shovn\OneDrive\dev\ECE356\ece356-group15-crime-project:/var/lib/mysql-files/
+volumes:
+  my-db:
