@@ -1,3 +1,12 @@
+import mysql.connector
+
+crime_db = mysql.connector.connect(
+    host="localhost",
+    user="yourusername",
+    password="yourpassword"
+)
+cursor = crime_db.cursor()
+
 role = ''
 roleMap = {
     'p': 'Police',
@@ -16,6 +25,18 @@ def get_input(prompt, valid_values=None):
     
     return user_input if user_input != 'na' else ''
 
+def create_where_clause(inputs):
+    where_clause = 'WHERE'
+    first = True
+    for key in inputs.keys():
+        if inputs[key]:
+            if not first:
+                where_clause += ' AND'
+            where_clause += ' {} = {}'.format(key, inputs[key])
+            first = False
+
+    return where_clause if where_clause != 'WHERE' else ''
+
 def get_area_crime_stats():
     borough = get_input('What borough would you like to get crime stats for?')
     # QUERY crimes activity for borough
@@ -31,12 +52,25 @@ def find_crimes_in_location_or_time():
         location_inputs['longitude'] = get_input('Longitude:')
         location_inputs['latitude'] = get_input('Latitude:')
         lsoa_inputs['lsoa'] = location_inputs['lsoa']
-        lsoa_inputs['lsoa_name'] = get_input('LSOA name:')
+        lsoa_inputs['lsoaName'] = get_input('LSOA name:')
         lsoa_inputs['borough'] = get_input('Borough:')
         
-        # QUERY LSOA table with lsoa inputs
+        if not location_inputs['lsoa']:
+            # QUERY LSOA table with lsoa inputs
+            cursor.execute('SELECT lsoa FROM LSOA {};'.format(create_where_clause(lsoa_inputs)))
+            lsoa = cursor.fetchone()[0]
+            location_inputs['lsoa'] = lsoa
+        
         # QUERY Location table with LSOA details from LSOA table
+        cursor.execute('SELECT crimeID FROM CrimeLocation {};'.format(create_where_clause(location_inputs)))
+        result = cursor.fetchall()
+        crime_ids = [x[0] for x in result]
+
         # QUERY Reported Crime with returned crime IDs
+        cursor.execute('SELECT * FROM ReportedCrime WHERE crimeID IN ({});'.format(','.join(crime_ids)))
+        result = cursor.fetchall()
+        for r in result:
+            print(x)
     else:
         print('Please enter the time period details below')
         startMonth = int(get_input('Start month:', set([str(i) for i in range(1, 13)])))
@@ -45,37 +79,48 @@ def find_crimes_in_location_or_time():
         endYear = int(get_input('End year:'))
 
         # QUERY reported crime with start and end dates
+        cursor.execute('SELECT * FROM ReportedCrime WHERE month BETWEEN {} and {} and year BETWEEN {} and {};'.format(str(startMonth), str(endMonth), str(startYear), str(endYear)))
 
 def find_crime_outcome():
     crime_id = get_input('Please enter the crime ID for which you would like to find the outcome:')
     if crime_id:
         # QUERY reported crime with crime id to get output
+        cursor.execute('SELECT outcome FROM ReportedCrime WHERE crimeID = {};'.format(crime_id))
+        result = cursor.fetchone()
+        print(result)
 
 def get_crimes_of_type():
     crime_type = get_input('Please enter the type of crime you would like to find:', crime_types)
     if crime_type:
         # QUERY reported crime to get all crimes with that crime type
+        cursor.execute('SELECT * FROM ReportedCrime WHERE type = {};'.format(crime_type))
+        result = cursor.fetchall()
+        for r in result:
+            print(x)
+
 def insert_reported_crime():
     reported_crime_inputs = {}
     crime_location_inputs = {}
     lsoa_inputs = {}
     print('Please enter the following reported crime details.')
-    reported_crime_inputs['crime_id'] = get_input('Crime ID:')
+    reported_crime_inputs['crimeID'] = get_input('Crime ID:')
     reported_crime_inputs['jurisdiction'] = get_input('Jurisdiction:')
     reported_crime_inputs['type'] = get_input('Crime type:')
     reported_crime_inputs['outcome'] = get_input('Crime outcome:')
     reported_crime_inputs['year'] = get_input('Year of the crime:')
     reported_crime_inputs['month'] = get_input('Month of the crime:')
+    crime_location_inputs['crimeID'] = reported_crime_inputs['crimeID']
     crime_location_inputs['lsoa'] = get_input('LSOA:')
     crime_location_inputs['description'] = get_input('Location description:')
     crime_location_inputs['longitude'] = get_input('Location longitude:')
     crime_location_inputs['latitude'] = get_input('Location latitude:')
-    lsoa_inputs['lsoa'] = crime_location_inputs['lsoa']
-    lsoa_inputs['lsoa_name'] = get_input('LSOA name:')
-    lsoa_inputs['borough'] = get_input('Borough:')
 
     # QUERY insert crime details into crime table
+    cursor.execute('INSERT INTO ReportedCrime (crimeID, jurisdiction, type, outcome, year, month) VALUES (%(crimeID)s, %(jurisdiction)s, %(type)s, %(outcome)s, %(year)s, %(month)s);', reported_crime_inputs)
+ 
     # QUERY insert location details into location table
+    cursor.execute('INSERT INTO CrimeLocation (crimeID, longitude, latitude, description, lsoa) VALUES (%(crimeID)s, %(longitude)s, %(latitude)s, %(description)s, %(lsoa)s);', crime_location_inputs)
+    crime_db.commit()
 
 def insert_stop_and_search():
     stop_and_search_inputs = {}
@@ -84,31 +129,36 @@ def insert_stop_and_search():
     stop_and_search_inputs['date'] = get_input('Date:')
     stop_and_search_inputs['type'] = get_input('Type:', crime_types)
     stop_and_search_inputs['legislation'] = get_input('Legislation:')
-    stop_and_search_inputs['object_of_search'] = get_input('Object of search:')
-    stop_and_search_inputs['found'] = get_input('Found object:', {'y', 'n'}) == 'y'
+    stop_and_search_inputs['objectOfSearch'] = get_input('Object of search:')
     stop_and_search_inputs['outcome'] = get_input('Outcome:')
-    stop_and_search_inputs['removal_of_clothing'] = get_input('Removal of clothing:', {'y', 'n'}) == 'y'
     
     # QUERY insert stop and search details
-    # QUERY stop and search to get search ID
+    cursor.execute('INSERT INTO StopAndSearch (type, date, legislation, objectOfSearch, outcome) VALUES (%(type)s, %(date)s, %(legislation)s, %(objectOfSearch)s, %(outcome)s);', stop_and_search_inputs)
     
     print('Please enter details about the person that was stopped and searched.')
-    # profile_inputs['search_id'] = search ID
+    profile_inputs['searchID'] = cursor.lastrowid
     profile_inputs['gender'] = get_input('Gender:')
-    profile_inputs['self_defined_ethnicity'] = get_input('Self-Defined Ethnicity:')
-    profile_inputs['officer_defined_ethnicity'] = get_input('Officer-Defined Ethnicity:')
-    profile_inputs['age_range'] = get_input('Age range:')
+    profile_inputs['selfDefinedEthnicity'] = get_input('Self-Defined Ethnicity:')
+    profile_inputs['officerDefinedEthnicity'] = get_input('Officer-Defined Ethnicity:')
+    profile_inputs['ageRange'] = get_input('Age range:')
 
     # QUERY insert person's profile details at search ID
+    cursor.execute('INSERT INTO SearchProfile (searchID, gender, ageRange, selfDefinedEthnicity, officerDefinedEthnicity) VALUES (%(searchID)s, %(gender)s, %(ageRange)s, %(selfDefinedEthnicity)s, %(officerDefinedEthnicity)s);', profile_inputs)
+    crime_db.commit()
 
 def get_stop_and_searches_aggregate():
     choice = get_input('What category would you like to aggregate by? (E = Ethnicity, A = Age range, G = Gender)', {'e', 'a', 'g'})
+    group_by_category = ''
     if choice == 'e':
-        # QUERY stop and searches grouped by officer-defined ethnicity and then self-defined ethnicity
+        group_by_category = 'officerDefinedEthnicity'
     elif choice == 'a':
-        # QUERY stop and searches grouped by age range
+        group_by_category = 'ageRange'
     else:
-        # QUERY stop and searches grouped by gender
+        group_by_category = 'gender'
+    cursor.execute('SELECT {group_by_category}, COUNT(*) FROM StopAndSearches INNER JOIN SearchProfile USING (searchID) GROUP BY {group_by_category};'.format(group_by_category=group_by_category))
+    result = cursor.fetchall()
+    for r in result:
+        print(r)
 
 role = get_input('What is your role? (P = Police, A = Analyst, C = Citizen)?', {'p', 'a', 'c'})
 
