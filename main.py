@@ -38,8 +38,19 @@ def create_where_clause(inputs):
     return where_clause if where_clause != 'WHERE' else ''
 
 def get_area_crime_stats():
-    borough = get_input('What borough would you like to get crime stats for?')
-    # QUERY crimes activity for borough
+    lsoa = get_input('What borough would you like to get crime stats for?')
+    if lsoa:
+        # QUERY crimes activity for borough
+        cursor.execute('SELECT year, majorCategory, COUNT(generalCrimeID)*100000/population AS crimesPerCapita FROM LSOA INNER JOIN GeneralCrime USING (lsoa) INNER JOIN CrimeCategory USING (minorCategory) GROUP BY lsoa, year, majorCategory WHERE lsoa = {};'.format(lsoa))
+        result = cursor.fetchall()
+        for x in result:
+            print(x)
+
+def get_crime_stats_by_area():
+    cursor.execute('SELECT year, majorCategory, COUNT(generalCrimeID)*100000/population AS crimesPerCapita FROM LSOA INNER JOIN GeneralCrime USING (lsoa) INNER JOIN CrimeCategory USING (minorCategory) GROUP BY lsoa, year, majorCategory;')
+        result = cursor.fetchall()
+        for x in result:
+            print(x)
 
 def find_crimes_in_location_or_time():
     choice = get_input('Would you like to get crimes for a location or a time period? (L = Location, T = Time Period)', {'l', 't'})
@@ -203,11 +214,12 @@ Pick one of the 2 options by entering the number:""",
         ))
 
         if option == 1:
-            # get crime by year or borough
+            get_crime_stats_by_area()
         else:
             get_stop_and_searches_aggregate()
-        
     else:
-        
+        get_area_crime_stats()
 
+cursor.close()
+crime_db.close()
 
