@@ -5,8 +5,8 @@ tee project-outfile.txt;
 warnings;
 
 -- Drop existing tables
-DROP TABLE IF EXISTS StopAndSearch;
 DROP TABLE IF EXISTS SearchProfile;
+DROP TABLE IF EXISTS StopAndSearch;
 
 DROP TABLE IF EXISTS GeneralCrime;
 DROP TABLE IF EXISTS CrimeCategory;
@@ -15,6 +15,50 @@ DROP TABLE IF EXISTS CrimeLocation;
 DROP TABLE IF EXISTS ReportedCrime;
 
 DROP TABLE IF EXISTS LSOA;
+DROP TABLE IF EXISTS Borough;
+
+-- Borough -------------------------------------------------------------------------------
+SELECT '-----------------------------------------------------------------------' as '';
+CREATE TABLE Borough (
+    borough VARCHAR(50),
+    PRIMARY KEY(borough)
+);
+
+INSERT INTO Borough
+VALUES  ("City of London"),
+        ("Barking and Dagenham"),
+        ("Barnet"),
+        ("Bexley"),
+        ("Brent"),
+        ("Bromley"),
+        ("Camden"),
+        ("Croydon"),
+        ("Ealing"),
+        ("Enfield"),
+        ("Greenwich"),
+        ("Hackney"),
+        ("Hammersmith and Fulham"),
+        ("Haringey"),
+        ("Harrow"),
+        ("Havering"),
+        ("Hillingdon"),
+        ("Hounslow"),
+        ("Islington"),
+        ("Kensington and Chelsea"),
+        ("Kingston upon Thames"),
+        ("Lambeth"),
+        ("Lewisham"),
+        ("Merton"),
+        ("Newham"),
+        ("Redbridge"),
+        ("Richmond upon Thames"),
+        ("Southwark"),
+        ("Sutton"),
+        ("Tower Hamlets"),
+        ("Waltham Forest"),
+        ("Wandsworth"),
+        ("Westminster");
+
 
 -- LSOA -------------------------------------------------------------------------------
 SELECT '-----------------------------------------------------------------------' as '';
@@ -27,7 +71,13 @@ CREATE TABLE LSOA (
     malePopulation INT,
     femalePopulation INT,
     population INT,
-    PRIMARY KEY(lsoa)
+    PRIMARY KEY(lsoa),
+    FOREIGN KEY(borough) REFERENCES Borough(borough),
+    CHECK(lsoa LIKE 'E01%'),
+    CHECK(lsoaName LIKE CONCAT(borough,'%')),
+    CHECK(malePopulation >= 0),
+    CHECK(femalePopulation >= 0),
+    CHECK(population >= 0)
 );
 
 CREATE TEMPORARY TABLE tempLSOA (
@@ -60,41 +110,8 @@ INTO TABLE tempLSOA
 INSERT INTO LSOA
 SELECT lsoa, lsoaName, borough, malePopulation, femalePopulation, population
 FROM tempLSOA
-WHERE borough IN (
-    "City of London",
-    "Barking and Dagenham",
-    "Barnet",
-    "Bexley",
-    "Brent",
-    "Bromley",
-    "Camden",
-    "Croydon",
-    "Ealing",
-    "Enfield",
-    "Greenwich",
-    "Hackney",
-    "Hammersmith and Fulham",
-    "Haringey",
-    "Harrow",
-    "Havering",
-    "Hillingdon",
-    "Hounslow",
-    "Islington",
-    "Kensington and Chelsea",
-    "Kingston upon Thames",
-    "Lambeth",
-    "Lewisham",
-    "Merton",
-    "Newham",
-    "Redbridge",
-    "Richmond upon Thames",
-    "Southwark",
-    "Sutton",
-    "Tower Hamlets",
-    "Waltham Forest",
-    "Wandsworth",
-    "Westminster"
-) AND year=2014;
+WHERE borough IN (SELECT borough FROM Borough)
+    AND year=2014;
 
 
 -- Reported Crime ---------------------------------------------------------------------
@@ -102,19 +119,22 @@ SELECT '-----------------------------------------------------------------------'
 SELECT 'Create Reported Crime' AS '';
 
 CREATE TABLE ReportedCrime (
-    crimeReportID INT,
+    crimeReportID INT NOT NULL,
     jurisdiction VARCHAR(50),
     type VARCHAR(50),
     outcome VARCHAR(50),
     year INT,
     month INT,
-    PRIMARY KEY(crimeReportID)
+    PRIMARY KEY(crimeReportID),
+    CHECK(crimeReportID > 0),
+    CHECK(year >= 2000 AND year < 3000),
+    CHECK(month >= 1 AND month <= 12)
 );
 
 CREATE TEMPORARY TABLE tempReportedCrime (
     crimeReportID INT,
-    month INT,
     year INT,
+    month INT,
     jurisdiction VARCHAR(50),
     longitude FLOAT,
     latitude FLOAT,
@@ -130,10 +150,13 @@ INTO TABLE tempReportedCrime
     ENCLOSED BY '"'
     LINES TERMINATED BY '\n'
     IGNORE 1 LINES
-    (crimeReportID, @monthyear, @dummy, jurisdiction, longitude, latitude, description,
+    (@crimeReportID, @monthyear, @dummy, jurisdiction, @longitude, @latitude, description,
      lsoa, @dummy, type, outcome, @dummy)
-    SET year = YEAR(CAST(CONCAT(@monthyear, "-01") AS dateTime)),
-        month = MONTH(CAST(CONCAT(@monthyear, "-01") AS dateTime));
+    SET crimeReportID = IF(@crimeReportID LIKE '', NULL, @crimeReportID),
+        year = YEAR(CAST(CONCAT(@monthyear, "-01") AS dateTime)),
+        month = MONTH(CAST(CONCAT(@monthyear, "-01") AS dateTime)),
+        longitude = IF(@longitude LIKE '', NULL, @longitude),
+        latitude = IF(@latitude LIKE '', NULL, @latitude);
 
 INSERT INTO ReportedCrime
 SELECT crimeReportID, jurisdiction, type, outcome, year, month
@@ -146,14 +169,16 @@ SELECT '-----------------------------------------------------------------------'
 SELECT 'Create Crime Location' AS '';
 
 CREATE TABLE CrimeLocation (
-    crimeReportID INT,
+    crimeReportID INT NOT NULL,
     longitude FLOAT,
     latitude FLOAT,
     description VARCHAR(255),
     lsoa CHAR(10),
     PRIMARY KEY(crimeReportID),
     FOREIGN KEY(crimeReportID) REFERENCES ReportedCrime(crimeReportID),
-    FOREIGN KEY(lsoa) REFERENCES LSOA(lsoa)
+    FOREIGN KEY(lsoa) REFERENCES LSOA(lsoa),
+    CHECK(longitude >= -180.0 AND longitude <= 180.0),
+    CHECK(latitude >= -90.0 AND latitude <= 90.0)
 );
 
 INSERT INTO CrimeLocation
@@ -201,14 +226,17 @@ SELECT '-----------------------------------------------------------------------'
 SELECT 'Create General Crime' AS '';
 
 CREATE TABLE GeneralCrime (
-    generalCrimeID INT,
+    generalCrimeID INT NOT NULL,
     lsoa CHAR(10),
     minorCategory VARCHAR(50),
     year INT,
     month INT,
     PRIMARY KEY(generalCrimeID),
     FOREIGN KEY(lsoa) REFERENCES LSOA(lsoa),
-    FOREIGN KEY(minorCategory) REFERENCES CrimeCategory(minorCategory)
+    FOREIGN KEY(minorCategory) REFERENCES CrimeCategory(minorCategory),
+    CHECK(generalCrimeID > 0),
+    CHECK(year >= 2000 AND year < 3000),
+    CHECK(month >= 1 AND month <= 12)
 );
 
 INSERT INTO GeneralCrime
@@ -222,13 +250,15 @@ SELECT '-----------------------------------------------------------------------'
 SELECT 'Create Stop And Search' AS '';
 
 CREATE TABLE StopAndSearch (
-    searchID INT,
+    searchID INT NOT NULL,
     type VARCHAR(50),
     date DATETIME,
     legislation VARCHAR(255),
     objectOfSearch VARCHAR(50),
     outcome VARCHAR(50),
-    PRIMARY KEY(searchID)
+    PRIMARY KEY(searchID),
+    CHECK(searchID > 0),
+    CHECK(date >= '2000-01-01 00:00:00' AND date <= '3000-01-01 00:00:00')
 );
 
 CREATE TEMPORARY TABLE tempStopAndSearch (
@@ -237,8 +267,8 @@ CREATE TEMPORARY TABLE tempStopAndSearch (
     date DATETIME,
     gender VARCHAR(10),
     ageRange VARCHAR(10),
-    selfDefinedEthnicity VARCHAR(50),
-    officerDefinedEthnicity VARCHAR(50),
+    selfDefinedEthnicity VARCHAR(100),
+    officerDefinedEthnicity VARCHAR(100),
     legislation VARCHAR(255),
     objectOfSearch VARCHAR(50),
     outcome VARCHAR(50)
@@ -271,11 +301,11 @@ SELECT '-----------------------------------------------------------------------'
 SELECT 'Create Search Profile' AS '';
 
 CREATE TABLE SearchProfile (
-    searchID INT,
+    searchID INT NOT NULL,
     gender VARCHAR(10),
     ageRange VARCHAR(10),
-    selfDefinedEthnicity VARCHAR(50),
-    officerDefinedEthnicity VARCHAR(50),
+    selfDefinedEthnicity VARCHAR(100),
+    officerDefinedEthnicity VARCHAR(100),
     PRIMARY KEY(searchID),
     FOREIGN KEY (searchID) REFERENCES StopAndSearch(searchID)
 );

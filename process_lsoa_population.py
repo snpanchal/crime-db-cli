@@ -9,6 +9,8 @@ with open('./CrimeData/lsoa-population.csv','r') as csvinput:
             for i in range(len(row)):
                 if row[i].strip() == '-':
                     row[i] = ""
+            row[-3] = row[-3].replace(',', '')
+            row[-2] = row[-2].replace(',', '')
             row[-1] = row[-1].replace(',', '')
             allrows.append(row)
         writer.writerows(allrows)
