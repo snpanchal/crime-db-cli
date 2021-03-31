@@ -10,6 +10,8 @@ with open('./CrimeData/london-street.csv','r') as csvinput:
         first_row[0] = "ID"
         allrows = [first_row]
         for row in reader:
+            if row[9].strip() == "Public order":
+                row[9] = "Other crime"
             if row[0].strip() != '':
                 row[0] = count
                 count +=1

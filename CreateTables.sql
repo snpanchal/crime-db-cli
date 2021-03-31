@@ -6,19 +6,20 @@ warnings;
 
 -- Drop existing tables
 DROP TABLE IF EXISTS SearchProfile;
+DROP TABLE IF EXISTS Ethnicity;
 DROP TABLE IF EXISTS StopAndSearch;
-
-DROP TABLE IF EXISTS GeneralCrime;
-DROP TABLE IF EXISTS CrimeCategory;
 
 DROP TABLE IF EXISTS CrimeLocation;
 DROP TABLE IF EXISTS ReportedCrime;
+DROP TABLE IF EXISTS GeneralCrime;
+DROP TABLE IF EXISTS CrimeCategory;
 
 DROP TABLE IF EXISTS LSOA;
 DROP TABLE IF EXISTS Borough;
 
--- Borough -------------------------------------------------------------------------------
+-- Borough ----------------------------------------------------------------------------
 SELECT '-----------------------------------------------------------------------' as '';
+SELECT 'Create Borough' AS '';
 CREATE TABLE Borough (
     borough VARCHAR(50),
     PRIMARY KEY(borough)
@@ -114,6 +115,64 @@ WHERE borough IN (SELECT borough FROM Borough)
     AND year=2014;
 
 
+-- Crime Category ---------------------------------------------------------------------
+SELECT '-----------------------------------------------------------------------' as '';
+SELECT 'Create Crime Category' AS '';
+
+CREATE TABLE CrimeCategory (
+    minorCategory VARCHAR(50),
+    majorCategory VARCHAR(50),
+    PRIMARY KEY(minorCategory)
+);
+
+CREATE TEMPORARY TABLE tempCrimeToLsoa (
+    generalCrimeID INT,
+    lsoa CHAR(10),
+    majorCategory VARCHAR(50),
+    minorCategory VARCHAR(50),
+    year INT,
+    month INT
+);
+
+LOAD DATA INFILE '/var/lib/mysql-files/CrimeData/new-london-crime-by-lsoa.csv' IGNORE
+INTO TABLE tempCrimeToLsoa
+    FIELDS TERMINATED BY ','
+    ENCLOSED BY '"'
+    LINES TERMINATED BY '\n'
+    IGNORE 1 LINES
+    (generalCrimeID, lsoa, @dummy, majorCategory, minorCategory, @dummy, year, month);
+
+INSERT INTO CrimeCategory
+SELECT minorCategory, MAX(majorCategory) AS majorCategory
+FROM tempCrimeToLsoa
+GROUP BY minorCategory;
+CREATE INDEX idxMajorCategory on CrimeCategory(majorCategory);
+
+
+-- General Crime ----------------------------------------------------------------------
+SELECT '-----------------------------------------------------------------------' as '';
+SELECT 'Create General Crime' AS '';
+
+CREATE TABLE GeneralCrime (
+    generalCrimeID INT NOT NULL,
+    lsoa CHAR(10),
+    minorCategory VARCHAR(50),
+    year INT,
+    month INT,
+    PRIMARY KEY(generalCrimeID),
+    FOREIGN KEY(lsoa) REFERENCES LSOA(lsoa),
+    FOREIGN KEY(minorCategory) REFERENCES CrimeCategory(minorCategory),
+    CHECK(generalCrimeID > 0),
+    CHECK(year >= 2000 AND year < 3000),
+    CHECK(month >= 1 AND month <= 12)
+);
+
+INSERT INTO GeneralCrime
+SELECT generalCrimeID, lsoa, minorCategory, year, month
+FROM tempCrimeToLsoa
+WHERE lsoa IN (SELECT lsoa FROM LSOA);
+
+
 -- Reported Crime ---------------------------------------------------------------------
 SELECT '-----------------------------------------------------------------------' as '';
 SELECT 'Create Reported Crime' AS '';
@@ -121,11 +180,12 @@ SELECT 'Create Reported Crime' AS '';
 CREATE TABLE ReportedCrime (
     crimeReportID INT NOT NULL,
     jurisdiction VARCHAR(50),
-    type VARCHAR(50),
+    majorCategory VARCHAR(50),
     outcome VARCHAR(50),
     year INT,
     month INT,
     PRIMARY KEY(crimeReportID),
+    FOREIGN KEY (majorCategory) REFERENCES CrimeCategory(majorCategory),
     CHECK(crimeReportID > 0),
     CHECK(year >= 2000 AND year < 3000),
     CHECK(month >= 1 AND month <= 12)
@@ -189,62 +249,6 @@ WHERE description!="No location"
     AND crimeReportID!="";
 
 
--- Crime Category ---------------------------------------------------------------------
-SELECT '-----------------------------------------------------------------------' as '';
-SELECT 'Create Crime Category' AS '';
-
-CREATE TABLE CrimeCategory (
-    minorCategory VARCHAR(50),
-    majorCategory VARCHAR(50),
-    PRIMARY KEY(minorCategory)
-);
-
-CREATE TEMPORARY TABLE tempCrimeToLsoa (
-    generalCrimeID INT,
-    lsoa CHAR(10),
-    majorCategory VARCHAR(50),
-    minorCategory VARCHAR(50),
-    year INT,
-    month INT
-);
-
-LOAD DATA INFILE '/var/lib/mysql-files/CrimeData/new-london-crime-by-lsoa.csv' IGNORE
-INTO TABLE tempCrimeToLsoa
-    FIELDS TERMINATED BY ','
-    ENCLOSED BY '"'
-    LINES TERMINATED BY '\n'
-    IGNORE 1 LINES
-    (generalCrimeID, lsoa, @dummy, majorCategory, minorCategory, @dummy, year, month);
-
-INSERT INTO CrimeCategory
-SELECT minorCategory, MAX(majorCategory) AS majorCategory
-FROM tempCrimeToLsoa
-GROUP BY minorCategory;
-
--- General Crime ----------------------------------------------------------------------
-SELECT '-----------------------------------------------------------------------' as '';
-SELECT 'Create General Crime' AS '';
-
-CREATE TABLE GeneralCrime (
-    generalCrimeID INT NOT NULL,
-    lsoa CHAR(10),
-    minorCategory VARCHAR(50),
-    year INT,
-    month INT,
-    PRIMARY KEY(generalCrimeID),
-    FOREIGN KEY(lsoa) REFERENCES LSOA(lsoa),
-    FOREIGN KEY(minorCategory) REFERENCES CrimeCategory(minorCategory),
-    CHECK(generalCrimeID > 0),
-    CHECK(year >= 2000 AND year < 3000),
-    CHECK(month >= 1 AND month <= 12)
-);
-
-INSERT INTO GeneralCrime
-SELECT generalCrimeID, lsoa, minorCategory, year, month
-FROM tempCrimeToLsoa
-WHERE lsoa IN (SELECT lsoa FROM LSOA);
-
-
 -- Stop and Search --------------------------------------------------------------------
 SELECT '-----------------------------------------------------------------------' as '';
 SELECT 'Create Stop And Search' AS '';
@@ -258,6 +262,8 @@ CREATE TABLE StopAndSearch (
     outcome VARCHAR(50),
     PRIMARY KEY(searchID),
     CHECK(searchID > 0),
+    CHECK(type="Person search" OR type="Person and Vehicle search"
+          OR type="Vehicle search" OR type IS NULL),
     CHECK(date >= '2000-01-01 00:00:00' AND date <= '3000-01-01 00:00:00')
 );
 
@@ -296,6 +302,21 @@ INTO TABLE tempStopAndSearch
 INSERT INTO StopAndSearch
 SELECT searchID, type, date, legislation, objectOfSearch, outcome FROM tempStopAndSearch;
 
+
+-- Ethnicity --------------------------------------------------------------------------
+SELECT '-----------------------------------------------------------------------' as '';
+SELECT 'Ethnicity' AS '';
+
+CREATE TABLE Ethnicity (
+    ethnicity VARCHAR(100),
+    PRIMARY KEY(ethnicity)
+);
+
+INSERT INTO Ethnicity
+SELECT DISTINCT selfDefinedEthnicity AS ethnicity FROM tempStopAndSearch
+WHERE selfDefinedEthnicity IS NOT NULL;
+
+
 -- Search Profile----------------------------------------------------------------------
 SELECT '-----------------------------------------------------------------------' as '';
 SELECT 'Create Search Profile' AS '';
@@ -305,9 +326,16 @@ CREATE TABLE SearchProfile (
     gender VARCHAR(10),
     ageRange VARCHAR(10),
     selfDefinedEthnicity VARCHAR(100),
-    officerDefinedEthnicity VARCHAR(100),
+    officerDefinedEthnicity VARCHAR(50),
     PRIMARY KEY(searchID),
-    FOREIGN KEY (searchID) REFERENCES StopAndSearch(searchID)
+    FOREIGN KEY (searchID) REFERENCES StopAndSearch(searchID),
+    FOREIGN KEY (selfDefinedEthnicity) REFERENCES Ethnicity(ethnicity),
+    CHECK(gender="Male" OR gender="Female" OR gender="Other" OR gender IS NULL),
+    CHECK(ageRange="under 10" OR ageRange="10-17" OR ageRange="18-24"
+          OR ageRange="25-34" OR ageRange="over 34" OR ageRange IS NULL),
+    CHECK(officerDefinedEthnicity="Asian" OR officerDefinedEthnicity="Black"
+          OR officerDefinedEthnicity="White" OR officerDefinedEthnicity="Mixed"
+          OR officerDefinedEthnicity="Other" OR officerDefinedEthnicity IS NULL)
 );
 
 INSERT INTO SearchProfile
