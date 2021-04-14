@@ -32,13 +32,13 @@ def get_input(prompt='', table_name='', valid_values=None, can_add_value=False):
         if can_add_value:
             domain_values.append('Add new value')
         options = [f'{i + 1}. {domain_values[i]}' for i in range(len(domain_values))]
-        print(f'Valid values: {", ".join(options)}')
+        print('Valid values: {}'.format("\n".join(options)))
         valid_values = set([str(i + 1) for i in range(len(domain_values))])
     user_input = str(input('Please enter a value: ')).lower()
-    if not valid_values or user_input == 'na':
-        return user_input if user_input != 'na' else ''
+    if not valid_values or not user_input:
+        return user_input
     
-    while user_input not in valid_values and user_input != 'na':
+    while user_input and user_input not in valid_values:
         user_input = str(input('Please enter a valid value: ')).lower()
     
     if can_add_value and int(user_input) == len(domain_values):
@@ -47,7 +47,7 @@ def get_input(prompt='', table_name='', valid_values=None, can_add_value=False):
         return new_value
     
     if not table_name:
-        return user_input if user_input != 'na' else ''
+        return user_input
 
     return domain_values[int(user_input) - 1] 
 
@@ -111,7 +111,7 @@ def find_crimes_in_location_or_time():
     if choice == 'l':
         location_inputs = {}
         lsoa_inputs = {}
-        print('Please enter the location details for the crime (enter NA to leave the field blank).')
+        print('Please enter the location details for the crime (press Enter to leave the field blank).')
         location_inputs['lsoa'] = get_input('LSOA') 
         lsoa_inputs['lsoa'] = location_inputs['lsoa']
         if not location_inputs['lsoa']:
@@ -120,11 +120,15 @@ def find_crimes_in_location_or_time():
         
             # QUERY LSOA table with lsoa inputs
             cursor.execute(f'SELECT lsoa FROM LSOA {create_where_clause(lsoa_inputs)};')
-            lsoa = cursor.fetchone()[0]
+            lsoa = cursor.fetchall()[0][0]
             location_inputs['lsoa'] = lsoa
         
         # QUERY Reported Crime with returned crime IDs
         cursor.execute(f'SELECT crimeReportID, majorCategory, outcome, year, month FROM ReportedCrime INNER JOIN CrimeLocation USING (crimeReportID) {create_where_clause(location_inputs)};')
+
+        result = cursor.fetchall()
+        for r in result:
+            print(r)
     else:
         print('Please enter the time period details below')
         startMonth = int(get_input(prompt='Start month', valid_values=month_set))
@@ -135,15 +139,15 @@ def find_crimes_in_location_or_time():
         # QUERY reported crime with start and end dates
         cursor.execute(f'SELECT * FROM ReportedCrime WHERE month BETWEEN {str(startMonth)} and {str(endMonth)} and year BETWEEN {str(startYear)} and {str(endYear)};')
     
-    result = cursor.fetchall()
-    for r in result:
-        print(r)
+        result = cursor.fetchall()
+        for r in result:
+            print(r)
 
-def find_crime_outcome():
-    crime_id = get_input(prompt='Crime ID for which you would like to find the outcome')
+def get_crime_details():
+    crime_id = get_input(prompt='Crime ID for which you would like to get the details')
     if crime_id:
         # QUERY reported crime with crime id to get output
-        cursor.execute(f'SELECT outcome FROM ReportedCrime WHERE crimeReportID = {crime_id};')
+        cursor.execute(f'SELECT * FROM ReportedCrime WHERE crimeReportID = {crime_id};')
         result = cursor.fetchone()[0]
         print(result)
 
@@ -156,6 +160,22 @@ def get_crimes_of_type():
         result = cursor.fetchall()
         for r in result:
             print(r)
+
+def get_stop_and_search_details():
+    search_id = get_input(prompt='Search ID for which you would like to get the details')
+    if search_id:
+        # QUERY stop and search with search id to get output
+        cursor.execute(f'SELECT * FROM StopAndSearch WHERE searchID = {search_id};')
+        result = cursor.fetchone()[0]
+        print(result)
+
+def update_existing_crime_outcome():
+    crime_id = get_input(prompt='Crime ID for which you would like to update the outcome')
+    if crime_id:
+        new_outcome = get_input(prompt='New outcome of crime', table_name='CrimeOutcome')
+        if new_outcome:
+            cursor.execute(f'UPDATE ReportedCrime SET outcome = "{new_outcome}" WHERE crimeReportID = {crime_id};')
+            crime_db.commit()
 
 def insert_reported_crime():
     reported_crime_inputs = {}
@@ -260,12 +280,14 @@ while True:
             prompt="""What would you like to do?
 1. Get stats about crime type and activity in an area.
 2. Find crimes reported in a location or in some time period.
-3. Find the outcome of a crime.
+3. Get the details of a crime.
 4. Identify other crimes of a certain type.
-5. Insert new reported crime.
-6. Insert new stop and search.
-Pick one of the 6 options by entering the number""",
-            valid_values=set([str(i) for i in range(1, 7)])
+5. Get details about a stop and search.
+6. Update an existing crime's outcome.
+7. Insert new reported crime.
+8. Insert new stop and search.
+Pick one of the 8 options by entering the number""",
+            valid_values=set([str(i) for i in range(1, 9)])
         ))
 
         if option == 1:
@@ -273,10 +295,14 @@ Pick one of the 6 options by entering the number""",
         elif option == 2:
             find_crimes_in_location_or_time()
         elif option == 3:
-            find_crime_outcome()
+            get_crime_details()
         elif option == 4:
             get_crimes_of_type()
         elif option == 5:
+            get_stop_and_search_details()
+        elif option == 6:
+            update_existing_crime_outcome()
+        elif option == 7:
             insert_reported_crime()
         else:
             insert_stop_and_search()
