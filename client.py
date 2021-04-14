@@ -6,7 +6,7 @@ crime_db = mysql.connector.connect(
     user='root',
     password='root',
     database='crime_db',
-    port=3308
+    port=3307
 )
 cursor = crime_db.cursor()
 
@@ -32,7 +32,7 @@ def get_input(prompt='', table_name='', valid_values=None, can_add_value=False):
         if can_add_value:
             domain_values.append('Add new value')
         options = [f'{i + 1}. {domain_values[i]}' for i in range(len(domain_values))]
-        print('Valid values: {}'.format("\n".join(options)))
+        print('Valid values:\n{}'.format("\n".join(options)))
         valid_values = set([str(i + 1) for i in range(len(domain_values))])
     user_input = str(input('Please enter a value: ')).lower()
     if not valid_values or not user_input:
@@ -181,72 +181,75 @@ def insert_reported_crime():
     reported_crime_inputs = {}
     crime_location_inputs = {}
     general_crime_inputs = {}
-    print('Please enter the following reported crime details.')
-    crime_minor_category = get_input(prompt='Crime minor category', table_name='CrimeCategory')
-    reported_crime_inputs['outcome'] = get_input(prompt='Crime outcome', table_name='CrimeOutcome')
-    reported_crime_inputs['year'] = get_input(prompt='Year of the crime', valid_values=year_set)
-    reported_crime_inputs['month'] = get_input(prompt='Month of the crime', valid_values=month_set)
-    crime_location_inputs['lsoa'] = get_input(prompt='LSOA')
-    crime_location_inputs['description'] = get_input(prompt='Location description')
-    crime_location_inputs['longitude'] = get_input(prompt='Location longitude')
-    crime_location_inputs['latitude'] = get_input(prompt='Location latitude')
+    crime_minor_category = get_input(prompt='\nPlease select the minor category of the crime.', table_name='CrimeCategory')
+    reported_crime_inputs['outcome'] = get_input(prompt='\nPlease select the outcome of the crime.', table_name='CrimeOutcome')
+    reported_crime_inputs['year'] = get_input(prompt='\nPlease enter the year the crime occurred.', valid_values=year_set)
+    reported_crime_inputs['month'] = get_input(prompt='\nPlease enter the month the crime occurred. (1-12)', valid_values=month_set)
+    crime_location_inputs['lsoa'] = get_input(prompt='\nPlease enter the LSOA where the crime occured (Press ENTER to skip).')
+    crime_location_inputs['description'] = get_input(prompt='\nPlease enter the location description (Press ENTER to skip).')
+    crime_location_inputs['longitude'] = get_input(prompt='\nPlease enter the longitude of the crime location (Press ENTER to skip).')
+    crime_location_inputs['latitude'] = get_input(prompt='\nPlease enter the latitude of the crime location (Press ENTER to skip).')
 
     # QUERY get max crimeReportID from ReportedCrime
     cursor.execute('SELECT MAX(crimeReportID) FROM ReportedCrime;')
-    max_crime_id = cursor.fetchone()
-    reported_crime_inputs['crimeReportID'] = str(int(max_crime_id) + 1)
+    reported_crime_id = int(cursor.fetchone()[0]) + 1
+    reported_crime_inputs['crimeReportID'] = str(reported_crime_id)
     crime_location_inputs['crimeReportID'] = reported_crime_inputs['crimeReportID']
 
     # QUERY get major category from minor category
-    cursor.execute(f'SELECT majorCategory FROM CrimeCategory WHERE minorCategory = {crime_minor_category};')
+    cursor.execute(f'SELECT majorCategory FROM CrimeCategory WHERE minorCategory = "{crime_minor_category}";')
     reported_crime_inputs['majorCategory'] = cursor.fetchone()[0]
+    print(f'\nYour reported crime ID is {str(reported_crime_id)}.\n')
 
     # QUERY insert crime details into reported crime table
-    cursor.execute('INSERT INTO ReportedCrime (crimeID, type, outcome, year, month) VALUES (%(crimeID)s, %(type)s, %(outcome)s, %(year)s, %(month)s);', reported_crime_inputs)
+    cursor.execute('INSERT INTO ReportedCrime (crimeReportID, majorCategory, outcome, year, month) VALUES (%(crimeReportID)s, %(majorCategory)s, %(outcome)s, %(year)s, %(month)s);', reported_crime_inputs)
  
     # QUERY insert location details into location table
-    cursor.execute('INSERT INTO CrimeLocation (crimeID, longitude, latitude, description, lsoa) VALUES (%(crimeID)s, %(longitude)s, %(latitude)s, %(description)s, %(lsoa)s);', crime_location_inputs)
+    if crime_location_inputs['lsoa'] != '' or crime_location_inputs['description'] != '' or crime_location_inputs['longitude'] != '' or crime_location_inputs['latitude'] != '':
+        cursor.execute('INSERT INTO CrimeLocation (crimeReportID, longitude, latitude, description, lsoa) VALUES (%(crimeReportID)s, %(longitude)s, %(latitude)s, %(description)s, %(lsoa)s);', crime_location_inputs)
 
-    cursor.execute('SELECT MAX(generalCrimeID) FROM GeneralCrime;')
-    max_crime_id = cursor.fetchone()[0]
-    general_crime_inputs['generalCrimeID'] = str(int(max_crime_id) + 1)
-    general_crime_inputs['lsoa'] = location_inputs['lsoa']
-    general_crime_inputs['minorCategory'] = crime_minor_category
-    general_crime_inputs['year'] = reported_crime_inputs['year']
-    general_crime_inputs['month'] = reported_crime_inputs['month']
+    if crime_location_inputs['lsoa'] != "":
+        # QUERY get max crimeReportID from GeneralCrime
+        cursor.execute('SELECT MAX(generalCrimeID) FROM GeneralCrime;')
+        general_crime_id = int(cursor.fetchone()[0]) + 1
+        general_crime_inputs['generalCrimeID'] = str(general_crime_id)
+        general_crime_inputs['lsoa'] = crime_location_inputs['lsoa']
+        general_crime_inputs['minorCategory'] = crime_minor_category
+        general_crime_inputs['year'] = reported_crime_inputs['year']
+        general_crime_inputs['month'] = reported_crime_inputs['month']
 
-    # QUERY insert crime details into general crime table
-    cursor.execute('INSERT INTO GeneralCrime (generalCrimeID, lsoa, minorCategory, year, month) VALUES (%(generalCrimeID)s, %(lsoa)s, %(minorCategory)s, %(year)s, %(month)s);', general_crime_inputs)
+        # QUERY insert crime details into general crime table
+        cursor.execute('INSERT INTO GeneralCrime (generalCrimeID, lsoa, minorCategory, year, month) VALUES (%(generalCrimeID)s, %(lsoa)s, %(minorCategory)s, %(year)s, %(month)s);', general_crime_inputs)
 
     crime_db.commit()
 
 def insert_stop_and_search():
     stop_and_search_inputs = {}
     profile_inputs = {}
-    print('Please enter the following stop and search details.')
-    stop_and_search_inputs['date'] = get_input(prompt='Date in YYYY-MM-DD format')
-    stop_and_search_inputs['type'] = get_input(prompt='Type', table_name='SearchType', can_add_value=True)
-    stop_and_search_inputs['legislation'] = get_input(prompt='Legislation', table_name='SearchLegislation', can_add_value=True)
-    stop_and_search_inputs['objectOfSearch'] = get_input(prompt='Object of search', table_name='ObjectOfSearch', can_add_value=True)
-    stop_and_search_inputs['outcome'] = get_input(prompt='Outcome', table_name='SearchOutcome')
+    stop_and_search_inputs['date'] = get_input(prompt='\nPlease enter the date of the search in YYYY-MM-DD format.')
+    stop_and_search_inputs['type'] = get_input(prompt='\nPlease select the type of search.', table_name='SearchType', can_add_value=True)
+    stop_and_search_inputs['legislation'] = get_input(prompt='\nPlease select the legislation under which the search was conducted.', table_name='SearchLegislation', can_add_value=True)
+    stop_and_search_inputs['objectOfSearch'] = get_input(prompt='\nPlease select the object of the search.', table_name='ObjectOfSearch', can_add_value=True)
+    stop_and_search_inputs['outcome'] = get_input(prompt='\nPlease select the final outcome of the search.', table_name='SearchOutcome')
     
-    print('Please enter details about the person that was stopped and searched.')
-    profile_inputs['gender'] = get_input(prompt='Gender', table_name='Gender')
-    profile_inputs['selfDefinedEthnicity'] = get_input(prompt='Self-Defined Ethnicity', table_name='DetailedEthnicity')
-    profile_inputs['officerDefinedEthnicity'] = get_input(prompt='Officer-Defined Ethnicity', table_name='SimpleEthnicity')
-    profile_inputs['ageRange'] = get_input(prompt='Age range', table_name='AgeRange')
+    profile_inputs['gender'] = get_input(prompt='\nPlease select the gender of the person searched.', table_name='Gender')
+    profile_inputs['selfDefinedEthnicity'] = get_input(prompt='\nPlease select the self-defined ethnicity of the person searched.', table_name='DetailedEthnicity')
+    profile_inputs['officerDefinedEthnicity'] = get_input(prompt='\nPlease select the officer-defined ethnicity of the person searched.', table_name='SimpleEthnicity')
+    profile_inputs['ageRange'] = get_input(prompt='\nPlease select the age range of the person searched.', table_name='AgeRange')
 
     # QUERY max stop and search id
     cursor.execute('SELECT MAX(searchID) FROM StopAndSearch;')
-    max_search_id = int(cursor.fetchone()[0])
-    stop_and_search_inputs['searchID'] = str(max_search_id + 1)
+    search_id = int(cursor.fetchone()[0]) + 1
+    stop_and_search_inputs['searchID'] = str(search_id)
     profile_inputs['searchID'] = stop_and_search_inputs['searchID']
+    print(f'\nYour search ID is {str(search_id)}.\n')
 
     # QUERY insert stop and search details
     cursor.execute('INSERT INTO StopAndSearch (searchID, type, date, legislation, objectOfSearch, outcome) VALUES (%(searchID)s, %(type)s, %(date)s, %(legislation)s, %(objectOfSearch)s, %(outcome)s);', stop_and_search_inputs)
 
     # QUERY insert person's profile details at search ID
-    cursor.execute('INSERT INTO SearchProfile (searchID, gender, ageRange, selfDefinedEthnicity, officerDefinedEthnicity) VALUES (%(searchID)s, %(gender)s, %(ageRange)s, %(selfDefinedEthnicity)s, %(officerDefinedEthnicity)s);', profile_inputs)
+    if profile_inputs['gender'] != '' or profile_inputs['selfDefinedEthnicity'] != '' or profile_inputs['officerDefinedEthnicity'] != '' or profile_inputs['ageRange']:
+        cursor.execute('INSERT INTO SearchProfile (searchID, gender, ageRange, selfDefinedEthnicity, officerDefinedEthnicity) VALUES (%(searchID)s, %(gender)s, %(ageRange)s, %(selfDefinedEthnicity)s, %(officerDefinedEthnicity)s);', profile_inputs)
     crime_db.commit()
 
 def get_stop_and_searches_aggregate():
@@ -280,9 +283,9 @@ while True:
             prompt="""What would you like to do?
 1. Get stats about crime type and activity in an area.
 2. Find crimes reported in a location or in some time period.
-3. Get the details of a crime.
+3. Get the details for a crime.
 4. Identify other crimes of a certain type.
-5. Get details about a stop and search.
+5. Get the details for a search.
 6. Update an existing crime's outcome.
 7. Insert new reported crime.
 8. Insert new stop and search.
