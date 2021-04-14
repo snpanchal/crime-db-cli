@@ -6,7 +6,7 @@ crime_db = mysql.connector.connect(
     user='root',
     password='root',
     database='crime_db',
-    port=3308
+    port=3307
 )
 cursor = crime_db.cursor()
 
@@ -21,7 +21,7 @@ year_set = set([str(i) for i in range(2000, 3000)])
 crime_minor_categories = ['Burglary in Other Buildings', 'Other violence', 'Personal Property', 'Other Theft', 'Offensive Weapon', 'Criminal Damage To Other Building', 'Theft/Taking of Pedal Cycle', 'Motor Vehicle Interference & Tampering', 'Theft/Taking Of Motor Vehicle', 'Wounding/GBH', 'Other Theft Person', 'Common Assault', 'Theft From Shops', 'Possession Of Drugs', 'Harassment', 'Handling Stolen Goods', 'Criminal Damage To Dwelling', 'Burglary in a Dwelling', 'Criminal Damage To Motor Vehicle', 'Other Criminal Damage', 'Counted per Victim', 'Going Equipped', 'Other Fraud & Forgery', 'Assault with Injury', 'Drug Trafficking', 'Other Drugs', 'Business Property', 'Other Notifiable', 'Other Sexual', 'Theft From Motor Vehicle', 'Rape', 'Murder']
 crime_major_categories = ['Burglary', 'Violence Against the Person', 'Robbery', 'Theft and Handling', 'Criminal Damage', 'Drugs', 'Fraud or Forgery', 'Other Notifiable Offences', 'Sexual Offences']
 
-def get_input(prompt='', table_name='', valid_values=None, can_add_value=False):
+def get_input(prompt='', table_name='', valid_values=None, can_add_value=False, optional=False):
     if not prompt:
         return ''
     domain_values = []
@@ -34,20 +34,21 @@ def get_input(prompt='', table_name='', valid_values=None, can_add_value=False):
         options = [f'{i + 1}. {domain_values[i]}' for i in range(len(domain_values))]
         print('Valid values:\n{}'.format("\n".join(options)))
         valid_values = set([str(i + 1) for i in range(len(domain_values))])
-    user_input = str(input('Please enter a value (press Enter to leave blank): ')).lower()
-    if not valid_values or not user_input:
+    user_input = str(input('Please enter a value: ')).lower()
+    
+    if not valid_values:
+        return user_input
+
+    while (not user_input and not optional) or (user_input and user_input not in valid_values):
+        user_input = str(input('Please enter a valid value: ')).lower()
+    
+    if (not user_input and optional) or not table_name:
         return user_input
     
-    while user_input and user_input not in valid_values:
-        user_input = str(input('Please enter a valid value (press Enter to leave blank): ')).lower()
-    
-    if can_add_value and user_input and int(user_input) == len(domain_values):
-        new_value = input('What is the new value you want to add? ')
+    if table_name and can_add_value and user_input and int(user_input) == len(domain_values):
+        new_value = input('Please enter your new value: ')
         cursor.execute(f'INSERT INTO {table_name} VALUES ({new_value});')
         return new_value
-    
-    if not table_name:
-        return user_input
 
     return domain_values[int(user_input) - 1] 
 
@@ -64,7 +65,7 @@ def create_where_clause(inputs):
     return where_clause if where_clause != 'WHERE' else ''
 
 def get_area_crime_stats_police():
-    choice = get_input(prompt='What would you like to search crime stats by? (Borough = B, LSOA = L)', valid_values={'b', 'l'})
+    choice = get_input(prompt='\nWhat would you like to search crime stats by? (Borough = B, LSOA = L)', valid_values={'b', 'l'})
     if choice == 'l':
         lsoa = str(input('What LSOA would you like to get crime stats for? '))
         if lsoa:
@@ -74,7 +75,7 @@ def get_area_crime_stats_police():
             for r in result:
                 print(r)
     else:
-        borough = get_input(prompt='What borough would you like to get crime stats for?', table_name='LondonBorough')
+        borough = get_input(prompt='\nWhat borough would you like to get crime stats for?', table_name='LondonBorough')
         if borough:
             query = f'SELECT SUM(population) FROM LSOA WHERE borough = "{borough}";'
             cursor.execute(query)
@@ -93,8 +94,8 @@ def get_area_crime_stats_analyst():
         print(r)
 
 def get_area_crime_stats_citizen():
-    choice = get_input(prompt='How would you like to aggregate crime stats? (Year = Y, Category = C)', valid_values={'y', 'c'})
-    lsoa = get_input(prompt='What LSOA would you like to get crime stats for?')
+    choice = get_input(prompt='\nHow would you like to aggregate crime stats? (Year = Y, Category = C)', valid_values={'y', 'c'})
+    lsoa = get_input(prompt='\nWhat LSOA would you like to get crime stats for?')
     if lsoa:
         if choice == 'c':
             # QUERY crimes activity for LSOA
@@ -107,16 +108,15 @@ def get_area_crime_stats_citizen():
             
 
 def find_crimes_in_location_or_time():
-    choice = get_input(prompt='Would you like to get crimes for a location or a time period? (L = Location, T = Time Period)', valid_values={'l', 't'})
+    choice = get_input(prompt='\nWould you like to get crimes for a location or a time period? (L = Location, T = Time Period)', valid_values={'l', 't'})
     if choice == 'l':
         location_inputs = {}
         lsoa_inputs = {}
-        print('Please enter the location details for the crime (press Enter to leave the field blank).')
-        location_inputs['lsoa'] = get_input('LSOA') 
+        location_inputs['lsoa'] = get_input(prompt='What is the LSOA?', optional=True) 
         lsoa_inputs['lsoa'] = location_inputs['lsoa']
         if not location_inputs['lsoa']:
-            lsoa_inputs['lsoaName'] = get_input(prompt='LSOA name')
-            lsoa_inputs['borough'] = get_input(prompt='Borough', table_name='LondonBorough')
+            lsoa_inputs['lsoaName'] = get_input(prompt='What is the LSOA name?')
+            lsoa_inputs['borough'] = get_input(prompt='What is the Borough?', table_name='LondonBorough')
         
             # QUERY LSOA table with lsoa inputs
             cursor.execute(f'SELECT lsoa FROM LSOA {create_where_clause(lsoa_inputs)};')
@@ -130,11 +130,10 @@ def find_crimes_in_location_or_time():
         for r in result:
             print(r)
     else:
-        print('Please enter the time period details below')
-        startMonth = int(get_input(prompt='Start month (1-12)', valid_values=month_set))
-        startYear = int(get_input(prompt='Start year'))
-        endMonth = int(get_input(prompt='End month (1-12)', valid_values=month_set))
-        endYear = int(get_input(prompt='End year'))
+        startMonth = int(get_input(prompt='\nWhat is the start month (1-12)?', valid_values=month_set))
+        startYear = int(get_input(prompt='\nWhat is the start year?'))
+        endMonth = int(get_input(prompt='\nWhat is the end month (1-12)?', valid_values=month_set))
+        endYear = int(get_input(prompt='\nWhat is the end year?'))
 
         # QUERY reported crime with start and end dates
         cursor.execute(f'SELECT * FROM ReportedCrime WHERE month BETWEEN {str(startMonth)} and {str(endMonth)} and year BETWEEN {str(startYear)} and {str(endYear)};')
@@ -144,7 +143,7 @@ def find_crimes_in_location_or_time():
             print(r)
 
 def get_crime_details():
-    crime_id = get_input(prompt='Crime ID for which you would like to get the details')
+    crime_id = get_input(prompt='\nWhat is the ID of the crime for which you would like to get the details?')
     if crime_id:
         # QUERY reported crime with crime id to get output
         cursor.execute(f'SELECT * FROM ReportedCrime WHERE crimeReportID = {crime_id};')
@@ -153,8 +152,8 @@ def get_crime_details():
         print()
 
 def get_crimes_of_type():
-    print(f'The following are the crime types: {", ".join(crime_major_categories)}')
-    crime_major_category = get_input(prompt='Type of crime you would like to find', valid_values=set([x.lower() for x in crime_major_categories]))
+    print('Existing crime types:\n{}'.format("\n".join(crime_major_categories)))
+    crime_major_category = get_input(prompt='\nWhat is the type of crime of interest?', valid_values=set([x.lower() for x in crime_major_categories]))
     if crime_major_category:
         # QUERY reported crime to get all crimes with that crime type
         cursor.execute(f'SELECT * FROM ReportedCrime WHERE majorCategory = "{crime_major_category}";')
@@ -163,7 +162,7 @@ def get_crimes_of_type():
             print(r)
 
 def get_stop_and_search_details():
-    search_id = get_input(prompt='Search ID for which you would like to get the details')
+    search_id = get_input(prompt='\nWhat is the ID of the search for which you would like to get the details?')
     if search_id:
         # QUERY stop and search with search id to get output
         cursor.execute(f'SELECT * FROM StopAndSearch WHERE searchID = {search_id};')
@@ -172,7 +171,7 @@ def get_stop_and_search_details():
         print()
 
 def update_existing_crime_outcome():
-    crime_id = get_input(prompt='Crime ID for which you would like to update the outcome')
+    crime_id = get_input(prompt='\nWhat is the ID of the crime for which you would like to update the outcome?')
     if crime_id:
         new_outcome = get_input(prompt='New outcome of crime', table_name='CrimeOutcome')
         if new_outcome:
@@ -180,7 +179,7 @@ def update_existing_crime_outcome():
             crime_db.commit()
 
 def update_existing_search_outcome():
-    search_id = get_input(prompt='Search ID for which you would like to update the outcome')
+    search_id = get_input(prompt='\nWhat is the ID for which you would like to update the outcome?')
     if search_id:
         new_outcome = get_input(prompt='New outcome of stop and search', table_name='SearchOutcome')
         if new_outcome:
@@ -191,14 +190,15 @@ def insert_reported_crime():
     reported_crime_inputs = {}
     crime_location_inputs = {}
     general_crime_inputs = {}
-    crime_minor_category = get_input(prompt='\nPlease select the minor category of the crime.', table_name='CrimeCategory')
-    reported_crime_inputs['outcome'] = get_input(prompt='\nPlease select the outcome of the crime.', table_name='CrimeOutcome')
-    reported_crime_inputs['year'] = get_input(prompt='\nPlease enter the year the crime occurred.', valid_values=year_set)
-    reported_crime_inputs['month'] = get_input(prompt='\nPlease enter the month the crime occurred. (1-12)', valid_values=month_set)
-    crime_location_inputs['lsoa'] = get_input(prompt='\nPlease enter the LSOA where the crime occured (Press ENTER to skip).')
-    crime_location_inputs['description'] = get_input(prompt='\nPlease enter the location description (Press ENTER to skip).')
-    crime_location_inputs['longitude'] = get_input(prompt='\nPlease enter the longitude of the crime location (Press ENTER to skip).')
-    crime_location_inputs['latitude'] = get_input(prompt='\nPlease enter the latitude of the crime location (Press ENTER to skip).')
+    crime_minor_category = get_input(prompt='\nWhat is the minor category of the crime?', table_name='CrimeCategory')
+    reported_crime_inputs['outcome'] = get_input(prompt='\nWhat is the outcome of the crime?', table_name='CrimeOutcome')
+    reported_crime_inputs['year'] = get_input(prompt='\nWhat is the year the crime occurred?', valid_values=year_set)
+    reported_crime_inputs['month'] = get_input(prompt='\nWhat is the month the crime occurred? (1-12)', valid_values=month_set)
+
+    crime_location_inputs['lsoa'] = get_input(prompt='\nWhat is the LSOA where the crime occured? (Press ENTER to skip)', optional=True)
+    crime_location_inputs['description'] = get_input(prompt='\nWhat is the location description? (Press ENTER to skip)', optional=True)
+    crime_location_inputs['longitude'] = get_input(prompt='\nWhat is the longitude of the crime location? (Press ENTER to skip)', optional=True)
+    crime_location_inputs['latitude'] = get_input(prompt='\nWhat is the latitude of the crime location? (Press ENTER to skip)', optional=True)
 
     # QUERY get max crimeReportID from ReportedCrime
     cursor.execute('SELECT MAX(crimeReportID) FROM ReportedCrime;')
@@ -236,16 +236,16 @@ def insert_reported_crime():
 def insert_stop_and_search():
     stop_and_search_inputs = {}
     profile_inputs = {}
-    stop_and_search_inputs['date'] = get_input(prompt='\nPlease enter the date of the search in YYYY-MM-DD format.')
-    stop_and_search_inputs['type'] = get_input(prompt='\nPlease select the type of search.', table_name='SearchType', can_add_value=True)
-    stop_and_search_inputs['legislation'] = get_input(prompt='\nPlease select the legislation under which the search was conducted.', table_name='SearchLegislation', can_add_value=True)
-    stop_and_search_inputs['objectOfSearch'] = get_input(prompt='\nPlease select the object of the search.', table_name='ObjectOfSearch', can_add_value=True)
-    stop_and_search_inputs['outcome'] = get_input(prompt='\nPlease select the final outcome of the search.', table_name='SearchOutcome')
+    stop_and_search_inputs['date'] = get_input(prompt='\nWhat is the date of the search in YYYY-MM-DD format?')
+    stop_and_search_inputs['type'] = get_input(prompt='\nWhat is the type of search?', table_name='SearchType', can_add_value=True)
+    stop_and_search_inputs['legislation'] = get_input(prompt='\nWhat is the legislation under which the search was conducted?', table_name='SearchLegislation', can_add_value=True)
+    stop_and_search_inputs['objectOfSearch'] = get_input(prompt='\nWhat is the object of the search?', table_name='ObjectOfSearch', can_add_value=True)
+    stop_and_search_inputs['outcome'] = get_input(prompt='\nWhat is the final outcome of the search?', table_name='SearchOutcome')
     
-    profile_inputs['gender'] = get_input(prompt='\nPlease select the gender of the person searched.', table_name='Gender')
-    profile_inputs['selfDefinedEthnicity'] = get_input(prompt='\nPlease select the self-defined ethnicity of the person searched.', table_name='DetailedEthnicity')
-    profile_inputs['officerDefinedEthnicity'] = get_input(prompt='\nPlease select the officer-defined ethnicity of the person searched.', table_name='SimpleEthnicity')
-    profile_inputs['ageRange'] = get_input(prompt='\nPlease select the age range of the person searched.', table_name='AgeRange')
+    profile_inputs['gender'] = get_input(prompt='\nWhat is the gender of the person searched?', table_name='Gender', optional=True)
+    profile_inputs['selfDefinedEthnicity'] = get_input(prompt='\nWhat is the self-defined ethnicity of the person searched?', table_name='DetailedEthnicity', optional=True)
+    profile_inputs['officerDefinedEthnicity'] = get_input(prompt='\nWhat is the officer-defined ethnicity of the person searched?', table_name='SimpleEthnicity', optional=True)
+    profile_inputs['ageRange'] = get_input(prompt='\nWhat is the age range of the person searched?', table_name='AgeRange', optional=True)
 
     # QUERY max stop and search id
     cursor.execute('SELECT MAX(searchID) FROM StopAndSearch;')
@@ -263,7 +263,7 @@ def insert_stop_and_search():
     crime_db.commit()
 
 def get_stop_and_searches_aggregate():
-    choice = get_input(prompt='What category would you like to aggregate by? (O = Officer-defined ethnicity, S = Self-defined ethnicity, A = Age range, G = Gender)', valid_values={'o', 's', 'a', 'g'})
+    choice = get_input(prompt='\nWhat category would you like to aggregate by? (O = Officer-defined ethnicity, S = Self-defined ethnicity, A = Age range, G = Gender)', valid_values={'o', 's', 'a', 'g'})
     group_by_category = ''
     if choice == 'o':
         group_by_category = 'officerDefinedEthnicity'
@@ -281,13 +281,14 @@ def get_stop_and_searches_aggregate():
     for r in result:
         print(r)
 
-role = get_input(prompt='What is your role? (P = Police, A = Analyst, C = Citizen)?', valid_values={'p', 'a', 'c'})
-
+role = ""
 while True:
+    if not role:
+        role = get_input(prompt='What is your role? (P = Police, A = Analyst, C = Citizen)?', valid_values={'p', 'a', 'c'})
     print('--------')
     print(f'Role: {role_map[role]}')
     print('--------')
-    
+
     if role == 'p':
         option = int(get_input(
             prompt="""
@@ -301,9 +302,10 @@ What would you like to do?
 7. Update an existing search's outcome.
 8. Insert new reported crime.
 9. Insert new stop and search.
+10. Change roles.
 
-Pick one of the 9 options by entering the corresponding number""",
-            valid_values=set([str(i) for i in range(1, 10)])
+Pick one of the 10 options by entering the corresponding number""",
+            valid_values=set([str(i) for i in range(1, 11)])
         ))
 
         if option == 1:
@@ -324,22 +326,41 @@ Pick one of the 9 options by entering the corresponding number""",
             insert_reported_crime()
         elif option == 9:
             insert_stop_and_search()
+        elif option == 10:
+            role = ""
 
     elif role.lower() == 'a':
         option = int(get_input(
-            prompt="""What would you like to do?
+            prompt="""
+What would you like to do?
 1. Get crime data by borough.
 2. Get number of stop and searches by person's profile.
-Pick one of the 2 options by entering the number""",
-            valid_values=set([str(i) for i in range(1, 3)])
+3. Change roles.
+
+Pick one of the 3 options by entering the number""",
+            valid_values=set([str(i) for i in range(1, 4)])
         ))
 
         if option == 1:
             get_area_crime_stats_analyst()
         elif option == 2:
             get_stop_and_searches_aggregate()
+        elif option == 3:
+            role = ""
     else:
-        get_area_crime_stats_citizen()
+        option = int(get_input(
+            prompt="""
+What would you like to do?
+1. Get crime stats by LSOA.
+2. Change roles.
+
+Pick one of the 2 options by entering the number""",
+            valid_values=set([str(i) for i in range(1, 3)])
+        ))
+        if option == 1:
+            get_area_crime_stats_citizen()
+        elif option == 2:
+            role = ""
 
 cursor.close()
 crime_db.close()
