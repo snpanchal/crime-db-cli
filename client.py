@@ -58,7 +58,7 @@ def create_where_clause(inputs):
         if inputs[key]:
             if not first:
                 where_clause += ' AND'
-            where_clause += (f' {key} = {inputs[key]}')
+            where_clause += (f' {key} = "{inputs[key]}"')
             first = False
 
     return where_clause if where_clause != 'WHERE' else ''
@@ -87,19 +87,24 @@ def get_area_crime_stats_police():
                 print(r)
 
 def get_area_crime_stats_analyst():
-    cursor.execute('SELECT borough, year, majorCategory, COUNT(generalCrimeID)*100000/population AS crimesPerCapita FROM LSOA INNER JOIN GeneralCrime USING (lsoa) INNER JOIN CrimeCategory USING (minorCategory) GROUP BY borough, year, majorCategory;')
+    cursor.execute('SELECT borough, year, majorCategory, COUNT(generalCrimeID)*100000/SUM(population) AS crimesPerCapita FROM LSOA INNER JOIN GeneralCrime USING (lsoa) INNER JOIN CrimeCategory USING (minorCategory) GROUP BY borough, year, majorCategory ORDER BY borough, year, majorCategory;')
     result = cursor.fetchall()
     for r in result:
         print(r)
 
 def get_area_crime_stats_citizen():
+    choice = get_input(prompt='How would you like to aggregate crime stats? (Year = Y, Category = C)', valid_values={'y', 'c'})
     lsoa = get_input(prompt='What LSOA would you like to get crime stats for?')
     if lsoa:
-        # QUERY crimes activity for LSOA
-        cursor.execute(f'SELECT year, majorCategory, COUNT(generalCrimeID)*100000/population AS crimesPerCapita FROM LSOA INNER JOIN GeneralCrime USING (lsoa) GROUP BY lsoa, year, majorCategory WHERE lsoa = {lsoa};')
+        if choice == 'c':
+            # QUERY crimes activity for LSOA
+            cursor.execute(f'WITH LSOACrimes AS (SELECT minorCategory, COUNT(generalCrimeID) AS numberOfCrimes FROM GeneralCrime WHERE lsoa = "{lsoa}" GROUP BY minorCategory) SELECT minorCategory, SUM(numberOfCrimes) AS numberOfCrimes FROM (SELECT * from LSOACrimes UNION (SELECT minorCategory, 0 AS numberOfCrimes FROM CrimeCategory)) AS temp GROUP BY minorCategory;')
+        else:
+            cursor.execute(f'SELECT year, count(generalCrimeID) FROM GeneralCrime WHERE lsoa = "{lsoa}" GROUP BY year ORDER BY year;')
         result = cursor.fetchall()
         for r in result:
             print(r)
+            
 
 def find_crimes_in_location_or_time():
     choice = get_input(prompt='Would you like to get crimes for a location or a time period? (L = Location, T = Time Period)', valid_values={'l', 't'})
@@ -107,22 +112,19 @@ def find_crimes_in_location_or_time():
         location_inputs = {}
         lsoa_inputs = {}
         print('Please enter the location details for the crime (enter NA to leave the field blank).')
-        location_inputs['lsoa'] = str(input('LSOA: '))
+        location_inputs['lsoa'] = get_input('LSOA') 
+        lsoa_inputs['lsoa'] = location_inputs['lsoa']
         if not location_inputs['lsoa']:
-            lsoa_inputs['lsoa'] = location_inputs['lsoa']
             lsoa_inputs['lsoaName'] = get_input(prompt='LSOA name')
             lsoa_inputs['borough'] = get_input(prompt='Borough', table_name='LondonBorough')
         
             # QUERY LSOA table with lsoa inputs
             cursor.execute(f'SELECT lsoa FROM LSOA {create_where_clause(lsoa_inputs)};')
-            lsoa = cursor.fetchall()[0]
+            lsoa = cursor.fetchone()[0]
             location_inputs['lsoa'] = lsoa
         
         # QUERY Reported Crime with returned crime IDs
         cursor.execute(f'SELECT crimeReportID, majorCategory, outcome, year, month FROM ReportedCrime INNER JOIN CrimeLocation USING (crimeReportID) {create_where_clause(location_inputs)};')
-        result = cursor.fetchall()
-        for r in result:
-            print(r)
     else:
         print('Please enter the time period details below')
         startMonth = int(get_input(prompt='Start month', valid_values=month_set))
@@ -132,13 +134,17 @@ def find_crimes_in_location_or_time():
 
         # QUERY reported crime with start and end dates
         cursor.execute(f'SELECT * FROM ReportedCrime WHERE month BETWEEN {str(startMonth)} and {str(endMonth)} and year BETWEEN {str(startYear)} and {str(endYear)};')
+    
+    result = cursor.fetchall()
+    for r in result:
+        print(r)
 
 def find_crime_outcome():
     crime_id = get_input(prompt='Crime ID for which you would like to find the outcome')
     if crime_id:
         # QUERY reported crime with crime id to get output
-        cursor.execute(f'SELECT outcome FROM ReportedCrime WHERE crimeID = {crime_id};')
-        result = cursor.fetchone()
+        cursor.execute(f'SELECT outcome FROM ReportedCrime WHERE crimeReportID = {crime_id};')
+        result = cursor.fetchone()[0]
         print(result)
 
 def get_crimes_of_type():
@@ -146,7 +152,7 @@ def get_crimes_of_type():
     crime_major_category = get_input(prompt='Type of crime you would like to find', valid_values=set([x.lower() for x in crime_major_categories]))
     if crime_major_category:
         # QUERY reported crime to get all crimes with that crime type
-        cursor.execute(f'SELECT * FROM ReportedCrime WHERE majorCategory = {crime_major_category};')
+        cursor.execute(f'SELECT * FROM ReportedCrime WHERE majorCategory = "{crime_major_category}";')
         result = cursor.fetchall()
         for r in result:
             print(r)
@@ -289,7 +295,7 @@ Pick one of the 2 options by entering the number""",
         else:
             get_stop_and_searches_aggregate()
     else:
-        get_area_crime_stats_citizen()
+            get_area_crime_stats_citizen()
 
 cursor.close()
 crime_db.close()
