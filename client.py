@@ -6,7 +6,7 @@ crime_db = mysql.connector.connect(
     user='root',
     password='root',
     database='crime_db',
-    port=3307
+    port=3308
 )
 cursor = crime_db.cursor()
 
@@ -197,8 +197,8 @@ def insert_reported_crime():
 
     crime_location_inputs['lsoa'] = get_input(prompt='\nWhat is the LSOA where the crime occured? (Press ENTER to skip)', optional=True)
     crime_location_inputs['description'] = get_input(prompt='\nWhat is the location description? (Press ENTER to skip)', optional=True)
-    crime_location_inputs['longitude'] = get_input(prompt='\nWhat is the longitude of the crime location? (Press ENTER to skip)', optional=True)
-    crime_location_inputs['latitude'] = get_input(prompt='\nWhat is the latitude of the crime location? (Press ENTER to skip)', optional=True)
+    long_lat = get_input('\nWhat are the longitude and latitude of the crime location (enter as "longitude:latitude")? (Press ENTER to skip)', optional=True)
+    [crime_location_inputs['longitude'], crime_location_inputs['latitude']] = long_lat.split(':') if long_lat else ['', '']
 
     # QUERY get max crimeReportID from ReportedCrime
     cursor.execute('SELECT MAX(crimeReportID) FROM ReportedCrime;')
@@ -218,7 +218,7 @@ def insert_reported_crime():
     if crime_location_inputs['lsoa'] != '' or crime_location_inputs['description'] != '' or crime_location_inputs['longitude'] != '' or crime_location_inputs['latitude'] != '':
         cursor.execute('INSERT INTO CrimeLocation (crimeReportID, longitude, latitude, description, lsoa) VALUES (%(crimeReportID)s, %(longitude)s, %(latitude)s, %(description)s, %(lsoa)s);', crime_location_inputs)
 
-    if crime_location_inputs['lsoa'] != "":
+    if crime_location_inputs['lsoa'] != '':
         # QUERY get max crimeReportID from GeneralCrime
         cursor.execute('SELECT MAX(generalCrimeID) FROM GeneralCrime;')
         general_crime_id = int(cursor.fetchone()[0]) + 1
@@ -281,7 +281,7 @@ def get_stop_and_searches_aggregate():
     for r in result:
         print(r)
 
-role = ""
+role = ''
 while True:
     if not role:
         role = get_input(prompt='What is your role? (P = Police, A = Analyst, C = Citizen)?', valid_values={'p', 'a', 'c'})
@@ -327,7 +327,7 @@ Pick one of the 10 options by entering the corresponding number""",
         elif option == 9:
             insert_stop_and_search()
         elif option == 10:
-            role = ""
+            role = ''
 
     elif role.lower() == 'a':
         option = int(get_input(
@@ -346,7 +346,7 @@ Pick one of the 3 options by entering the number""",
         elif option == 2:
             get_stop_and_searches_aggregate()
         elif option == 3:
-            role = ""
+            role = ''
     else:
         option = int(get_input(
             prompt="""
@@ -360,7 +360,7 @@ Pick one of the 2 options by entering the number""",
         if option == 1:
             get_area_crime_stats_citizen()
         elif option == 2:
-            role = ""
+            role = ''
 
 cursor.close()
 crime_db.close()
