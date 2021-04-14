@@ -6,7 +6,7 @@ crime_db = mysql.connector.connect(
     user='root',
     password='root',
     database='crime_db',
-    port=3307
+    port=3308
 )
 cursor = crime_db.cursor()
 
@@ -34,14 +34,14 @@ def get_input(prompt='', table_name='', valid_values=None, can_add_value=False):
         options = [f'{i + 1}. {domain_values[i]}' for i in range(len(domain_values))]
         print('Valid values:\n{}'.format("\n".join(options)))
         valid_values = set([str(i + 1) for i in range(len(domain_values))])
-    user_input = str(input('Please enter a value: ')).lower()
+    user_input = str(input('Please enter a value (press Enter to leave blank): ')).lower()
     if not valid_values or not user_input:
         return user_input
     
     while user_input and user_input not in valid_values:
-        user_input = str(input('Please enter a valid value: ')).lower()
+        user_input = str(input('Please enter a valid value (press Enter to leave blank): ')).lower()
     
-    if can_add_value and int(user_input) == len(domain_values):
+    if can_add_value and user_input and int(user_input) == len(domain_values):
         new_value = input('What is the new value you want to add? ')
         cursor.execute(f'INSERT INTO {table_name} VALUES ({new_value});')
         return new_value
@@ -131,9 +131,9 @@ def find_crimes_in_location_or_time():
             print(r)
     else:
         print('Please enter the time period details below')
-        startMonth = int(get_input(prompt='Start month', valid_values=month_set))
+        startMonth = int(get_input(prompt='Start month (1-12)', valid_values=month_set))
         startYear = int(get_input(prompt='Start year'))
-        endMonth = int(get_input(prompt='End month', valid_values=month_set))
+        endMonth = int(get_input(prompt='End month (1-12)', valid_values=month_set))
         endYear = int(get_input(prompt='End year'))
 
         # QUERY reported crime with start and end dates
@@ -148,8 +148,9 @@ def get_crime_details():
     if crime_id:
         # QUERY reported crime with crime id to get output
         cursor.execute(f'SELECT * FROM ReportedCrime WHERE crimeReportID = {crime_id};')
-        result = cursor.fetchone()[0]
+        result = cursor.fetchone()
         print(result)
+        print()
 
 def get_crimes_of_type():
     print(f'The following are the crime types: {", ".join(crime_major_categories)}')
@@ -166,8 +167,9 @@ def get_stop_and_search_details():
     if search_id:
         # QUERY stop and search with search id to get output
         cursor.execute(f'SELECT * FROM StopAndSearch WHERE searchID = {search_id};')
-        result = cursor.fetchone()[0]
+        result = cursor.fetchone()
         print(result)
+        print()
 
 def update_existing_crime_outcome():
     crime_id = get_input(prompt='Crime ID for which you would like to update the outcome')
@@ -175,6 +177,14 @@ def update_existing_crime_outcome():
         new_outcome = get_input(prompt='New outcome of crime', table_name='CrimeOutcome')
         if new_outcome:
             cursor.execute(f'UPDATE ReportedCrime SET outcome = "{new_outcome}" WHERE crimeReportID = {crime_id};')
+            crime_db.commit()
+
+def update_existing_search_outcome():
+    search_id = get_input(prompt='Search ID for which you would like to update the outcome')
+    if search_id:
+        new_outcome = get_input(prompt='New outcome of stop and search', table_name='SearchOutcome')
+        if new_outcome:
+            cursor.execute(f'UPDATE StopAndSearch SET outcome = "{new_outcome}" WHERE searchID = {search_id};')
             crime_db.commit()
 
 def insert_reported_crime():
@@ -280,17 +290,20 @@ while True:
     
     if role == 'p':
         option = int(get_input(
-            prompt="""What would you like to do?
+            prompt="""
+What would you like to do?
 1. Get stats about crime type and activity in an area.
 2. Find crimes reported in a location or in some time period.
 3. Get the details for a crime.
 4. Identify other crimes of a certain type.
 5. Get the details for a search.
 6. Update an existing crime's outcome.
-7. Insert new reported crime.
-8. Insert new stop and search.
-Pick one of the 8 options by entering the number""",
-            valid_values=set([str(i) for i in range(1, 9)])
+7. Update an existing search's outcome.
+8. Insert new reported crime.
+9. Insert new stop and search.
+
+Pick one of the 9 options by entering the corresponding number""",
+            valid_values=set([str(i) for i in range(1, 10)])
         ))
 
         if option == 1:
@@ -306,8 +319,10 @@ Pick one of the 8 options by entering the number""",
         elif option == 6:
             update_existing_crime_outcome()
         elif option == 7:
+            update_existing_search_outcome()
+        elif option == 8:
             insert_reported_crime()
-        else:
+        elif option == 9:
             insert_stop_and_search()
 
     elif role.lower() == 'a':
@@ -321,10 +336,10 @@ Pick one of the 2 options by entering the number""",
 
         if option == 1:
             get_area_crime_stats_analyst()
-        else:
+        elif option == 2:
             get_stop_and_searches_aggregate()
     else:
-            get_area_crime_stats_citizen()
+        get_area_crime_stats_citizen()
 
 cursor.close()
 crime_db.close()
