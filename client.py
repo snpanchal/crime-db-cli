@@ -223,6 +223,32 @@ def insert_stop_and_search():
     cursor.execute('INSERT INTO SearchProfile (searchID, gender, ageRange, selfDefinedEthnicity, officerDefinedEthnicity) VALUES (%(searchID)s, %(gender)s, %(ageRange)s, %(selfDefinedEthnicity)s, %(officerDefinedEthnicity)s);', profile_inputs)
     crime_db.commit()
 
+def get_data_mining_analysis():
+    choice = get_input(prompt='What patterns would you like to explore? (0 = Stop and Search, 1 = General Crime)', valid_values=set([str(i) for i in range(1, 3)])
+    group_by_category = ''
+    if choice == 0:
+        choice = get_input(prompt='What attributes of individuals who have been stopped and searched would you like to investigate? (0 = Gender, 1 = Age Range, 2 = Ethnicity)', valid_values=set([str(i) for i in range(1, 4)])
+        if choice == 0:
+            group_by_category = 'gender'
+        elif choice == 1:
+            group_by_category = 'ageRange'
+        else:
+            group_by_category = 'selfDefinedEthnicity' 
+        cursor.execute('SELECT COUNT(*) FROM SearchProfile;')
+        total_searches = int(cursor.fetchone()[0])
+        cursor.execute(f'SELECT COUNT(*)/{total_searches}*100.0 as PercentageOfTotalSearches, gender, ageRange, selfDefinedEthnicity, FROM SearchProfile GROUP BY  {group_by_category} ORDER BY PercentageOfTotalSearches DESC;')
+        result = cursor.fetchall()
+        for r in result:
+            print(r)
+    else:
+        cursor.execute(f'SELECT COUNT(SELECT COUNT(generalCrimeID) as numberOfCrimes, GeneralCrime.lsoa, GeneralCrime.minorCategory, LSOA.Borough FROM GeneralCrime INNER JOIN LSOA USING (lsoa) GROUP BY GeneralCrime.minorCategory;')
+        result = cursor.fetchall()
+        for r in result:
+            print(r)
+
+
+  
+
 def get_stop_and_searches_aggregate():
     choice = get_input(prompt='What category would you like to aggregate by? (O = Officer-defined ethnicity, S = Self-defined ethnicity, A = Age range, G = Gender)', valid_values={'o', 's', 'a', 'g'})
     group_by_category = ''
@@ -280,14 +306,17 @@ Pick one of the 6 options by entering the number""",
             prompt="""What would you like to do?
 1. Get crime data by borough.
 2. Get number of stop and searches by person's profile.
-Pick one of the 2 options by entering the number""",
-            valid_values=set([str(i) for i in range(1, 3)])
+3. Explore further into crime patterns (Datamining).
+Pick one of the 3 options by entering the number""",
+            valid_values=set([str(i) for i in range(1, 4)])
         ))
 
         if option == 1:
             get_area_crime_stats_analyst()
-        else:
+        elif option == 2:
             get_stop_and_searches_aggregate()
+        else:
+            get_data_mining_analysis()
     else:
         get_area_crime_stats_citizen()
 
