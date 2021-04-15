@@ -51,20 +51,30 @@ INNER JOIN (
 SELECT '-----------------------------------------------------------------------' as '';
 SELECT 'Stop And Search Datamining Queries' AS '';
 
+-- Search ratio per gender
 SELECT gender, COUNT(*)/(SELECT COUNT(*) FROM SearchProfile) AS searchRatio
 FROM SearchProfile
 GROUP BY gender;
 
+-- Search ratio per officer defined ethnicity
 SELECT officerDefinedEthnicity, COUNT(*)/(SELECT COUNT(*) FROM SearchProfile) AS searchRatio
 FROM SearchProfile
 GROUP BY officerDefinedEthnicity;
 
+-- Search ratio per self defined ethnicity
 SELECT selfDefinedEthnicity, COUNT(*)/(SELECT COUNT(*) FROM SearchProfile) AS searchRatio
 FROM SearchProfile
 GROUP BY selfDefinedEthnicity;
 
+-- Search ratio per age range
 SELECT ageRange, COUNT(*)/(SELECT COUNT(*) FROM SearchProfile) AS searchRatio
 FROM SearchProfile
 GROUP BY ageRange;
+
+-- Specific Data to identify trends
+SELECT gender, officerDefinedEthnicity, ageRange, COUNT(*)/(SELECT COUNT(*) FROM SearchProfile) AS searchRatio
+FROM SearchProfile
+GROUP BY gender,officerDefinedEthnicity, ageRange
+ORDER BY searchRatio DESC;
 
 notee;

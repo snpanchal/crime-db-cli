@@ -3,7 +3,7 @@
 +-------------------------------------------------------------------------+
 | ----------------------------------------------------------------------- |
 +-------------------------------------------------------------------------+
-1 row in set (0.00 sec)
+1 row in set (0.01 sec)
 
 +--------------------------+
 |                          |
@@ -9440,7 +9440,7 @@
 | Westminster            | 2016 | Theft/Taking of Pedal Cycle            |         27.0048 |
 | Westminster            | 2016 | Wounding/GBH                           |         22.2897 |
 +------------------------+------+----------------------------------------+-----------------+
-9332 rows in set (1.12 sec)
+9332 rows in set (1.16 sec)
 
 +-------------------------------------------------------------------------+
 |                                                                         |
@@ -9464,7 +9464,7 @@
 | Male   |      0.9336 |
 | Other  |      0.0004 |
 +--------+-------------+
-4 rows in set (0.10 sec)
+4 rows in set (0.06 sec)
 
 +-------------------------+-------------+
 | officerDefinedEthnicity | searchRatio |
@@ -9513,4 +9513,112 @@
 | under 10 |      0.0003 |
 +----------+-------------+
 6 rows in set (0.07 sec)
+
++--------+-------------------------+----------+-------------+
+| gender | officerDefinedEthnicity | ageRange | searchRatio |
++--------+-------------------------+----------+-------------+
+| Male   | Black                   | 18-24    |      0.1494 |
+| Male   | White                   | 18-24    |      0.1344 |
+| Male   | White                   | 25-34    |      0.0997 |
+| Male   | Black                   | 10-17    |      0.0838 |
+| Male   | White                   | over 34  |      0.0795 |
+| Male   | Asian                   | 18-24    |      0.0707 |
+| Male   | Black                   | 25-34    |      0.0692 |
+| Male   | White                   | 10-17    |      0.0683 |
+| Male   | Black                   | over 34  |      0.0449 |
+| Male   | Asian                   | 25-34    |      0.0340 |
+| Male   | Asian                   | 10-17    |      0.0187 |
+| Male   | Black                   | NULL     |      0.0184 |
+| Male   | Asian                   | over 34  |      0.0145 |
+| Male   | Other                   | 18-24    |      0.0130 |
+| Female | White                   | 18-24    |      0.0129 |
+| Male   | White                   | NULL     |      0.0109 |
+| Female | White                   | 25-34    |      0.0107 |
+| Female | White                   | over 34  |      0.0093 |
+| Female | White                   | 10-17    |      0.0067 |
+| Male   | Other                   | 25-34    |      0.0062 |
+| Female | Black                   | 18-24    |      0.0060 |
+| Male   | Asian                   | NULL     |      0.0054 |
+| Male   | Other                   | 10-17    |      0.0049 |
+| Female | Black                   | 25-34    |      0.0036 |
+| Female | Black                   | 10-17    |      0.0036 |
+| Female | Black                   | over 34  |      0.0035 |
+| Male   | Other                   | over 34  |      0.0033 |
+| Female | Asian                   | 18-24    |      0.0021 |
+| Male   | NULL                    | 18-24    |      0.0012 |
+| Female | White                   | NULL     |      0.0011 |
+| Male   | Other                   | NULL     |      0.0011 |
+| Female | Asian                   | 25-34    |      0.0009 |
+| Female | Asian                   | 10-17    |      0.0007 |
+| Male   | NULL                    | 25-34    |      0.0006 |
+| Male   | NULL                    | 10-17    |      0.0006 |
+| Female | Asian                   | over 34  |      0.0006 |
+| Female | Black                   | NULL     |      0.0006 |
+| Male   | NULL                    | over 34  |      0.0004 |
+| Female | Other                   | 18-24    |      0.0004 |
+| Male   | NULL                    | NULL     |      0.0003 |
+| NULL   | White                   | over 34  |      0.0003 |
+| Female | NULL                    | 18-24    |      0.0002 |
+| NULL   | Black                   | 18-24    |      0.0002 |
+| Female | Other                   | 25-34    |      0.0002 |
+| NULL   | White                   | 18-24    |      0.0002 |
+| NULL   | White                   | 25-34    |      0.0002 |
+| Female | Other                   | 10-17    |      0.0002 |
+| NULL   | NULL                    | 25-34    |      0.0001 |
+| NULL   | White                   | NULL     |      0.0001 |
+| NULL   | Black                   | over 34  |      0.0001 |
+| Male   | White                   | under 10 |      0.0001 |
+| NULL   | NULL                    | NULL     |      0.0001 |
+| NULL   | Asian                   | 18-24    |      0.0001 |
+| Female | Asian                   | NULL     |      0.0001 |
+| Female | NULL                    | 25-34    |      0.0001 |
+| NULL   | Black                   | 10-17    |      0.0001 |
+| Male   | Black                   | under 10 |      0.0001 |
+| NULL   | White                   | 10-17    |      0.0001 |
+| NULL   | Asian                   | over 34  |      0.0001 |
+| Female | Other                   | over 34  |      0.0001 |
+| NULL   | Asian                   | 25-34    |      0.0001 |
+| NULL   | Black                   | NULL     |      0.0001 |
+| NULL   | Black                   | 25-34    |      0.0001 |
+| Female | NULL                    | over 34  |      0.0001 |
+| Female | NULL                    | 10-17    |      0.0001 |
+| Male   | Asian                   | under 10 |      0.0000 |
+| Male   | Mixed                   | 18-24    |      0.0000 |
+| Female | White                   | under 10 |      0.0000 |
+| Other  | Asian                   | 18-24    |      0.0000 |
+| Other  | Black                   | 25-34    |      0.0000 |
+| Other  | White                   | 25-34    |      0.0000 |
+| NULL   | NULL                    | 18-24    |      0.0000 |
+| Other  | White                   | 18-24    |      0.0000 |
+| Other  | White                   | NULL     |      0.0000 |
+| Other  | White                   | 10-17    |      0.0000 |
+| NULL   | NULL                    | over 34  |      0.0000 |
+| NULL   | Asian                   | NULL     |      0.0000 |
+| Female | NULL                    | NULL     |      0.0000 |
+| NULL   | Other                   | 18-24    |      0.0000 |
+| NULL   | NULL                    | 10-17    |      0.0000 |
+| Other  | Black                   | 10-17    |      0.0000 |
+| Other  | Asian                   | 10-17    |      0.0000 |
+| Female | Other                   | NULL     |      0.0000 |
+| Other  | Asian                   | NULL     |      0.0000 |
+| Other  | Black                   | 18-24    |      0.0000 |
+| Female | Black                   | under 10 |      0.0000 |
+| Other  | NULL                    | under 10 |      0.0000 |
+| Male   | Other                   | under 10 |      0.0000 |
+| Male   | NULL                    | under 10 |      0.0000 |
+| Other  | NULL                    | NULL     |      0.0000 |
+| Other  | Black                   | over 34  |      0.0000 |
+| Other  | White                   | over 34  |      0.0000 |
+| Other  | Other                   | over 34  |      0.0000 |
+| Other  | Black                   | NULL     |      0.0000 |
+| Other  | Asian                   | 25-34    |      0.0000 |
+| NULL   | Other                   | over 34  |      0.0000 |
+| NULL   | Asian                   | 10-17    |      0.0000 |
+| NULL   | Other                   | 25-34    |      0.0000 |
+| NULL   | Other                   | 10-17    |      0.0000 |
+| Other  | Asian                   | over 34  |      0.0000 |
+| NULL   | Other                   | NULL     |      0.0000 |
+| Other  | NULL                    | 18-24    |      0.0000 |
++--------+-------------------------+----------+-------------+
+102 rows in set (0.27 sec)
 
