@@ -511,7 +511,7 @@ def get_data_mining_analysis():
             if crime_type:
                 # QUERY reported crime to get all crimes with that crime type
                 cursor.execute(
-                    f'SELECT COUNT(generalCrimeID) AS numberOfCrimes, majorCategory FROM ReportedCrime WHERE minorCategory = "{crime_type}";'
+                    f'SELECT COUNT(generalCrimeID) AS numberOfCrimes, minorCategory FROM ReportedCrime WHERE minorCategory = "{crime_type} ORDER BY numberOfCrimes DESC";'
                 )
                 result = cursor.fetchall()
                 for r in result:
