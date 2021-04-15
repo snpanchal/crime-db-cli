@@ -6,7 +6,7 @@ crime_db = mysql.connector.connect(
     user='root',
     password='root',
     database='crime_db',
-    port=3308
+    port=3307
 )
 cursor = crime_db.cursor()
 
@@ -263,10 +263,10 @@ def insert_stop_and_search():
     crime_db.commit()
 
 def get_data_mining_analysis():
-    choice = get_input(prompt='What patterns would you like to explore? (0 = Stop and Search, 1 = General Crime)', valid_values=set([str(i) for i in range(1, 3)])
+    choice = get_input(prompt='\nWhat patterns would you like to explore? (0 = Stop and Search, 1 = General Crime)', valid_values=set([str(i) for i in range(2)]))
     group_by_category = ''
     if choice == 0:
-        choice = get_input(prompt='What attributes of individuals who have been stopped and searched would you like to investigate? (0 = Gender, 1 = Age Range, 2 = Ethnicity)', valid_values=set([str(i) for i in range(1, 4)])
+        choice = get_input(prompt='\nWhat attributes of individuals who have been stopped and searched would you like to investigate? (0 = Gender, 1 = Age Range, 2 = Ethnicity)', valid_values=set([str(i) for i in range(3)]))
         if choice == 0:
             group_by_category = 'gender'
         elif choice == 1:
@@ -280,10 +280,11 @@ def get_data_mining_analysis():
         for r in result:
             print(r)
     else:
-        cursor.execute(f'SELECT COUNT(SELECT COUNT(generalCrimeID) as numberOfCrimes, GeneralCrime.lsoa, GeneralCrime.minorCategory, LSOA.Borough FROM GeneralCrime INNER JOIN LSOA USING (lsoa) GROUP BY GeneralCrime.minorCategory;')
+        cursor.execute(f'SELECT COUNT(SELECT COUNT(generalCrimeID) AS numberOfCrimes, GeneralCrime.lsoa, GeneralCrime.minorCategory, LSOA.Borough FROM GeneralCrime INNER JOIN LSOA USING (lsoa) GROUP BY GeneralCrime.minorCategory;')
         result = cursor.fetchall()
         for r in result:
             print(r)
+    print()
 
 
   
