@@ -1,4 +1,5 @@
-tee outfile.txt;
+\! rm -f dataminingOutfile.txt
+tee dataminingOutfile.txt;
 
 SELECT '-----------------------------------------------------------------------' as '';
 SELECT 'Crime Datamining Queries' AS '';

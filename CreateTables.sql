@@ -1,5 +1,5 @@
-\! rm -f project-outfile.txt
-tee project-outfile.txt;
+\! rm -f tableOutfile.txt
+tee table-outfile.txt;
 
 -- Show warnings after every statement
 warnings;
