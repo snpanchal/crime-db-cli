@@ -150,12 +150,26 @@ def get_area_crime_stats_police():
 
 
 def get_area_crime_stats_analyst():
-    cursor.execute(
-        "SELECT borough, year, majorCategory, COUNT(generalCrimeID)*100000/SUM(population) AS crimesPerCapita FROM LSOA INNER JOIN GeneralCrime USING (lsoa) INNER JOIN CrimeCategory USING (minorCategory) GROUP BY borough, year, majorCategory ORDER BY borough, year, majorCategory;"
-    )
+    cursor.execute("""
+        SELECT borough, year, majorCategory, numCrimes*100000/pop AS crimesPerCapita
+        FROM (
+            SELECT COUNT(generalCrimeID) AS numCrimes, majorCategory, borough, year
+            FROM LSOA
+            INNER JOIN GeneralCrime USING (lsoa)
+            INNER JOIN CrimeCategory USING (minorCategory)
+            GROUP BY borough, year, majorCategory
+        ) AS t1
+        INNER JOIN (
+            SELECT borough, SUM(population) AS pop
+            FROM LSOA
+            GROUP BY borough
+        ) AS t2 USING(borough)
+        ORDER BY borough, year, majorCategory;
+    """)
     result = cursor.fetchall()
     for r in result:
         print(r)
+    print()
 
 
 def get_area_crime_stats_citizen():
@@ -456,75 +470,6 @@ def insert_stop_and_search():
     crime_db.commit()
 
 
-def get_data_mining_analysis():
-    choice = get_input(
-        prompt="\nWhat patterns would you like to explore? (Stop and Search = S, General Crime = G)",
-        valid_values={"s", "g"},
-    )
-    group_by_category = ""
-    if choice == "s":
-        search_attributes = get_input(
-            prompt="\nWhat attributes of individuals who have been stopped and searched would you like to investigate? (Gender = G, Age Range = A, Ethnicity = E)",
-            valid_values={"g", "a", "e"},
-        )
-        if choice == "g":
-            group_by_category = "gender"
-        elif choice == "a":
-            group_by_category = "ageRange"
-        else:
-            group_by_category = "officerDefinedEthnicity"
-        cursor.execute("SELECT COUNT(*) FROM SearchProfile;")
-        total_searches = int(cursor.fetchone()[0])
-        cursor.execute(
-            f"SELECT COUNT(*)/{total_searches}*100.0 as PercentageOfTotalSearches, gender, ageRange, officerDefinedEthnicity, FROM SearchProfile GROUP BY  {group_by_category} ORDER BY PercentageOfTotalSearches DESC;"
-        )
-        result = cursor.fetchall()
-        for r in result:
-            print(r)
-    else:
-        choice = get_input(
-            prompt="\nWould you like to explore by Borough or the type of crime? (Borough = B, Crime Type = C)",
-            valid_values={"b", "c"},
-        )
-        if choice == "b":
-            borough = get_input(
-                prompt="\nWhat borough would you like to get crime stats for?",
-                table_name="LondonBorough",
-            )
-            if borough:
-                query = f'SELECT SUM(population) FROM LSOA WHERE borough = "{borough}";'
-                cursor.execute(query)
-                borough_population = cursor.fetchone()[0]
-                # QUERY crimes activity for borough
-                cursor.execute(
-                    f'SELECT COUNT(generalCrimeID)*100000/{borough_population} AS crimesPerCapita, GeneralCrime.minorCategory,lsoa, borough  FROM GeneralCrime INNER JOIN LSOA USING (lsoa) WHERE borough = "{borough}" GROUP BY minorCategory,lsoa, borough ORDER BY crimesPerCapita DESC;'
-                )
-                result = cursor.fetchall()
-                for r in result:
-                    print(r)
-        else:
-            print("Existing crime types:\n{}".format("\n".join(crime_minor_categories)))
-            crime_type = get_input(
-                prompt="\nWhat is the type of crime of interest?",
-                valid_values=set([x.lower() for x in crime_minor_categories]),
-            )
-            if crime_type:
-                # QUERY reported crime to get all crimes with that crime type
-                cursor.execute(
-                    f'SELECT COUNT(generalCrimeID) AS numberOfCrimes, minorCategory FROM ReportedCrime WHERE minorCategory = "{crime_type} ORDER BY numberOfCrimes DESC";'
-                )
-                result = cursor.fetchall()
-                for r in result:
-                    print(r)
-            cursor.execute(
-                f"SELECT COUNT(generalCrimeID) AS numberOfCrimes, GeneralCrime.lsoa, GeneralCrime.minorCategory, LSOA.Borough FROM GeneralCrime INNER JOIN LSOA USING (lsoa) GROUP BY GeneralCrime.minorCategory;"
-            )
-            result = cursor.fetchall()
-            for r in result:
-                print(r)
-    print()
-
-
 def get_stop_and_searches_aggregate():
     choice = get_input(
         prompt="\nWhat category would you like to aggregate by? (O = Officer-defined ethnicity, S = Self-defined ethnicity, A = Age range, G = Gender)",
@@ -540,21 +485,22 @@ def get_stop_and_searches_aggregate():
     else:
         group_by_category = "gender"
 
-    cursor.execute("SELECT COUNT(*) FROM SearchProfile;")
-    total_searches = int(cursor.fetchone()[0])
-    cursor.execute(
-        f"SELECT {group_by_category}, COUNT(*)/{total_searches} FROM SearchProfile GROUP BY {group_by_category};"
-    )
+    cursor.execute(f"""
+        SELECT {group_by_category}, COUNT(*)/(SELECT COUNT(*) FROM SearchProfile) AS searchRatio
+        FROM SearchProfile
+        GROUP BY {group_by_category};
+    """)
     result = cursor.fetchall()
     for r in result:
         print(r)
+    print()
 
 
 role = ""
 while True:
     if not role:
         role = get_input(
-            prompt="What is your role? (P = Police, A = Analyst, C = Citizen)?",
+            prompt="\nWhat is your role? (P = Police, A = Analyst, C = Citizen)?",
             valid_values={"p", "a", "c"},
         )
     print("--------")
@@ -608,13 +554,12 @@ Pick one of the 10 options by entering the corresponding number""",
             get_input(
                 prompt="""
 What would you like to do?
-1. Get crime data by borough.
+1. Get aggregate crime data grouped by borough.
 2. Get number of stop and searches by person's profile.
-3. View deeper analysis and trends on crime data.
-4. Change roles. 
+3. Change roles. 
 
 Pick one of the 3 options by entering the number""",
-                valid_values=set([str(i) for i in range(1, 5)]),
+                valid_values=set([str(i) for i in range(1, 4)]),
             )
         )
         if option == 1:
@@ -622,10 +567,7 @@ Pick one of the 3 options by entering the number""",
         elif option == 2:
             get_stop_and_searches_aggregate()
         elif option == 3:
-            get_data_mining_analysis()
-        elif option == 4:
             role = ""
-
     else:
         option = int(
             get_input(
